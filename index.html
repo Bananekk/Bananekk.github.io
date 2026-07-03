@@ -3,10 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Oliver Shooter - Galaxy Shoot 'em up</title>
-    <link rel="manifest" href='data:application/manifest+json,{"name":"Oliver Shooter","short_name":"Oliver","display":"fullscreen","start_url":".","background_color":"#000","theme_color":"#8e44ad","icons":[{"src":"logo.png","sizes":"192x192","type":"image/png"},{"src":"logo.png","sizes":"512x512","type":"image/png"}]}'>
+    <title>Oliver Shooter</title>
     <link rel="icon" href="logo.png" type="image/png">
     <link rel="apple-touch-icon" href="logo.png">
+    <script>
+        // Generowanie manifestu w locie, aby zachować wymóg 1 pliku HTML i poprawić ścieżki do ikony
+        const manifestData = {
+            "name": "Oliver Shooter",
+            "short_name": "Oliver",
+            "display": "fullscreen",
+            "start_url": window.location.href,
+            "background_color": "#000000",
+            "theme_color": "#8e44ad",
+            "icons": [
+                { "src": new URL("logo.png", window.location.href).href, "sizes": "192x192", "type": "image/png" },
+                { "src": new URL("logo.png", window.location.href).href, "sizes": "512x512", "type": "image/png" }
+            ]
+        };
+        const blob = new Blob([JSON.stringify(manifestData)], {type: 'application/manifest+json'});
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = URL.createObjectURL(blob);
+        document.head.appendChild(link);
+    </script>
     <style>
         /* RESET I PODSTAWY */
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
