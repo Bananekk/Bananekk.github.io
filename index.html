@@ -6,6 +6,7 @@
     <title>Oliver Shooter - Galaxy Shoot 'em up</title>
     <link rel="manifest" href='data:application/manifest+json,{"name":"Oliver Shooter","short_name":"Oliver","display":"fullscreen","start_url":".","background_color":"#000","theme_color":"#8e44ad","icons":[{"src":"logo.png","sizes":"192x192","type":"image/png"},{"src":"logo.png","sizes":"512x512","type":"image/png"}]}'>
     <link rel="icon" href="logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="logo.png">
     <style>
         /* RESET I PODSTAWY */
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
@@ -110,7 +111,7 @@
     
     <div id="main-menu" class="overlay">
         <h1>Oliver Shooter</h1>
-        <p style="color: #f1c40f; font-weight: bold; font-size: 1.5rem;">Rekord: <span id="high-score-display">0</span></p>
+        <p style="color: #f1c40f; font-weight: bold; font-size: 1.5rem;">Najwyższa fala: <span id="high-score-display">0</span></p>
         <p>Poruszaj się: WASD / Strzałki / Przeciągnij palcem</p>
         <p>Strzelanie z Auto-Aimem! Możesz pauzować (ESC).</p>
         <button id="start-btn">START GRY</button>
@@ -168,11 +169,45 @@
     const bgImage = new Image();
     bgImage.src = 'tlo.png'; // <-- TUTAJ WRZUĆ SWÓJ PLIK PNG/JPG TŁA
 
-    // 3. Muzyka w tle
+    // 3. System Kolejkowania Muzyki w tle
     const bgMusic = new Audio();
-    bgMusic.src = 'muzyka.mp3'; // <-- TUTAJ WRZUĆ SWÓJ PLIK MP3
-    bgMusic.loop = true;
     bgMusic.volume = 0.5;
+    bgMusic.loop = false; // Muzyka idzie z listy, jedna po drugiej
+    
+    // Potężna lista potencjalnych piosenek do wylosowania (muzyka1.mp3 - muzyka100.mp3)
+    let playlistFiles = ['muzyka.mp3']; // domyślny
+    for(let i=1; i<=100; i++) {
+        playlistFiles.push('muzyka' + i + '.mp3');
+    }
+    
+    let lastPlayedFile = '';
+    let currentAttemptFile = '';
+    
+    function playNextSong() {
+        if (playlistFiles.length === 0) return;
+        
+        let available = playlistFiles.filter(f => f !== lastPlayedFile);
+        if (available.length === 0) available = playlistFiles; 
+        
+        let idx = Math.floor(Math.random() * available.length);
+        currentAttemptFile = available[idx];
+        
+        bgMusic.src = currentAttemptFile;
+        bgMusic.play().then(() => {
+            lastPlayedFile = currentAttemptFile;
+        }).catch(e => {
+            if (e.name === 'NotAllowedError') {
+                // Zablokowane przez przeglądarkę przed pierwszą interakcją - nie usuwamy
+            }
+        });
+    }
+
+    bgMusic.addEventListener('ended', playNextSong);
+    bgMusic.addEventListener('error', () => {
+        // Plik zepsuty lub nie istnieje - trwale usuwamy z listy i szybko lecimy dalej
+        playlistFiles = playlistFiles.filter(f => f !== currentAttemptFile);
+        playNextSong();
+    });
 
     // 4. Dźwięk Game Over
     const gameOverSound = new Audio();
@@ -616,11 +651,22 @@
     }
     
     function updateHighScoreDisplay() {
-        let hs = localStorage.getItem('oliverShooterHighScore') || 0;
+        let hs = localStorage.getItem('oliverShooterHighScore') || 1;
         document.getElementById('high-score-display').innerText = hs;
+    }
+    
+    function saveHighScore() {
+        if (typeof waveManager === 'undefined' || !waveManager) return;
+        let hs = parseInt(localStorage.getItem('oliverShooterHighScore') || 0);
+        if (waveManager.wave > hs) {
+            localStorage.setItem('oliverShooterHighScore', waveManager.wave);
+        }
     }
 
     function goToMenu() {
+        if (gameState === 'PLAYING' || gameState === 'PAUSED' || gameState === 'GAMEOVER') {
+            saveHighScore();
+        }
         gameState = 'MENU';
         document.getElementById('pause-menu').classList.add('hidden');
         document.getElementById('game-over').classList.add('hidden');
@@ -830,9 +876,8 @@
         document.getElementById('pause-menu').classList.add('hidden');
         updateUI();
 
-        // Odtwarzanie muzyki
-        bgMusic.currentTime = 0;
-        bgMusic.play().catch(e => console.log('Muzyka zablokowana przez przeglądarkę, dopóki użytkownik nie kliknie w ekran.'));
+        // Odtwarzanie muzyki - losowanie nowej piosenki na start gry
+        playNextSong();
     }
 
     function gameOver() {
@@ -840,10 +885,7 @@
         document.getElementById('game-over').classList.remove('hidden');
         document.getElementById('final-score').innerText = score;
         
-        let hs = localStorage.getItem('oliverShooterHighScore') || 0;
-        if (score > hs) {
-            localStorage.setItem('oliverShooterHighScore', score);
-        }
+        saveHighScore();
         updateHighScoreDisplay();
         
         // Zatrzymujemy muzykę w tle
